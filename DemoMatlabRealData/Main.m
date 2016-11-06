@@ -1,0 +1,132 @@
+
+clearvars; close all; clc 
+
+%% ============== Read Image ======================= 
+
+load('Golfe_Lion_ABCD2.mat') % HSI data 
+M3d = ABCD_mer(:,:,:);
+clear ABCD_mer; 
+[nl,nc,L] = size(M3d);
+nt = nc*nl; N = nt;
+S = reshape(M3d,nt,L)';clc 
+
+hFig = figure;
+set(hFig, 'Position', [300 500 300 200])
+imagesc(M3d(:,:,13)); colormap jet; colorbar; AxisFont
+
+%% =============== Endmembers =====================
+
+% [Ae, idx_vca, Rp] = vca(S,'Endmembers',4);
+idx_vca = [46799       65636       60499        5792]; 
+R = S(:,idx_vca);
+
+P = size(R,2);
+
+hFig = figure;
+set(hFig, 'Position', [300 500 300 200])
+plot(R); 
+axis([1 L 0 0.5]);
+legend('1','2','3','4');
+AxisFont
+                             
+%% =============== Test FCLS =====================
+
+H = R'*R;
+f = -R'*S;
+l = zeros(P,1);
+A = ones(1,P);
+b = 1;
+X_FCLS = zeros(P,N);
+
+for i=1:N
+    X_FCLS(:,i) = qpas(H,f(:,i),[],[],A,b,l);
+end
+
+RE_FCLS = ErrComput(S,R*X_FCLS);
+Angle_FCLS = Compute_avg_angle(S,R*X_FCLS);
+
+%% =============== Test ExtR =====================
+               
+RExt = zeros(L,P+(P^2-P)/2);
+RExt(:,1:P) = R;
+cnt = P+1;
+for i= 1:P
+    for j=i+1:P
+        RExt(:,cnt) = R(:,i).*R(:,j);
+        cnt = cnt+1;
+    end
+end
+
+Pext = cnt-1;
+
+[X_RExtR, t_RExtR] = FCLS(S,RExt);
+F_RExtR = RExt(:,P+1:end)*X_RExtR(P+1:end,:);
+
+RE_RExtR = ErrComput(S,R*X_RExtR(1:P,:)+F_RExtR);
+Angle_RExtR = Compute_avg_angle(S,R*X_RExtR(1:P,:)+F_RExtR);
+
+%% =============== Test khype (G) =====================
+
+lambda = 10;
+mu = 0.0001;
+
+tmp = pdist2(R,R);
+par = 1; % Gaussian
+sigma = par*max(tmp(:)); % sigma = 0;
+[X_khype, F_khype, K_Khype] = khype3(sigma,lambda,mu,N,S,R);
+
+RE_khype = ErrComput(S,R*X_khype+F_khype);
+Angle_khype = Compute_avg_angle(S,R*X_khype+F_khype);
+
+%% =============== NDU (P) =====================
+
+X3d = zeros(nl,nc,P); 
+F3d = zeros(nl,nc,L);
+t = 0;
+
+h = 10;
+w = 10;
+
+% patch 1x100
+
+for i=1:floor(nl/h)
+    for j=1:floor(nc/w)
+        
+        % select block of h*w
+        xi = (i-1)*h+1:i*h; 
+        yj = (j-1)*w+1:j*w;
+        S3d = M3d(xi,yj,:);
+        Ni = h*w; 
+        Si = reshape(S3d,Ni,L).';
+        
+        % Setting the neighbours of each pixel 
+        V = cell(1,Ni);
+        [S1, S2, S3, S4] = FourNeighbours(M3d,h,w,i,j); % returns 4 neighbours of the (i,j)-th patch
+        for ii=1:Ni
+            V{1,ii} = [Si(:,ii) S1(:,ii) S2(:,ii) S3(:,ii) S4(:,ii)];
+        end
+        
+        [X_FCLSi, t_FCLS] = FCLS(Si,R);
+        abd_map2_i = reshape(X_FCLSi,Ni,P)';
+        abd_map2_i = reshape(abd_map2_i,Ni,P)';
+        
+        str = 'Transformable'; % 'full'; %
+        par = 0; % Polynomial
+        
+        [Xi, Fi, t_NDU, K_NDU] = NDU(Si,R,V,lambda,mu,par,str);
+                                    
+        X3di = reshape(Xi',h,w,P);
+        F3di = reshape(Fi',h,w,L);
+        X3d(xi,yj,:)=X3di;
+        F3d(xi,yj,:)=F3di;
+        t = t+ t_NDU; 
+        disp(strcat(num2str(i),'-',num2str(j)))
+
+    end
+end
+
+X_NDU = reshape(X3d,N,P)';
+F_NDU = reshape(F3d,N,L)';
+
+RE_NDU = ErrComput(S,R*X_NDU+F_NDU);
+Angle_NDU = Compute_avg_angle(S,R*X_NDU+F_NDU);

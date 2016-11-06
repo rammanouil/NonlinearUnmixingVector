@@ -1,0 +1,119 @@
+
+clear all; close all; clc 
+
+%% ============== Meris Image ======================= 
+load('Golfe_Lion_ABCD2.mat')
+M3d = ABCD_mer; clear ABCD_mer;
+
+hFig = figure;
+set(hFig, 'Position', [1 1000 300 200])
+imagesc((M3d(:,:,10))); colormap jet; colorbar 
+AxisFont
+
+%% ============== Class Image ======================= 
+load('Golfe_Lion_ABCD_abd2');% classification map 
+
+class = unique(ABCD_class(:));
+nb_class = length(class);
+
+hFig = figure;
+set(hFig, 'Position', [1 1000 300 200])
+imagesc((ABCD_class)); 
+M = jet(nb_class); 
+cbr = colormap(M); 
+colorbar('YTickLabel',{'121','142','222','243','313','323','332','512'}); AxisFont
+
+%% ============== Endmembers ======================= 
+clear all; 
+load('Test_ABCD_UNDU3.mat');
+
+% candidate R
+hFig = figure;
+set(hFig, 'Position', [1 1000 300 200])
+imagesc((M3d(:,:,10))); colormap jet; colorbar 
+AxisFont
+idx_cdts_unc = zeros(1,nt); idx_cdts_unc(idx_cdts_unc_)=ones(1,length(idx_cdts_unc_));
+[x,y] = find(reshape(idx_cdts_unc,nl,nc));
+hold on; plot(y,x,'rx');
+
+% E_det in Figure + R
+tmp = mean(Z,2);
+tmp = tmp>0.01;
+idx_end_img = idx_cdts_unc_(tmp); 
+plot_slctd_pts_2(M3d,idx_end_img,x,y); 
+
+% E_det in Figure
+tmp = mean(Z,2);
+tmp = tmp>0.01;
+idx_end_img = idx_cdts_unc_(tmp); 
+plot_slctd_pts(M3d,idx_end_img); 
+
+% candidate S
+hFig = figure;
+set(hFig, 'Position', [1 1000 300 200])
+imagesc((M3d(:,:,10))); colormap jet; colorbar 
+AxisFont;
+idx_cdts = zeros(1,nt); idx_cdts(idx_cdts_)=ones(1,length(idx_cdts_));
+[x,y] = find(reshape(idx_cdts,nl,nc));
+hold on; plot(y,x,'rx');
+
+% E_det spectra
+hFig = figure;
+set(hFig, 'Position', [1 1000 300 200])
+plot(E_det,'-*');
+axis([1 L 0 0.4])
+xlabel('Frequency band number');
+ylabel('Reflectance');
+legend('End. 1','End. 2','3');
+AxisFont;
+
+%% ============== Abd maps ======================= 
+clear all;
+load('Test_SuNDU_All4.mat')
+for i=1:P
+    hFig = figure;
+    set(hFig, 'Position', [1 1000 300 200])
+    imagesc(X3d(:,:,i)); colormap jet; colorbar; AxisFont
+end
+
+for i=1:L
+    %figure; imshow(F3d(:,:,i)); colormap gray ; colorbar 
+    figure; imagesc((F3d(:,:,i))); colormap jet; colorbar; 
+end
+
+clear all; 
+load('Custumized_abd_ABCD'); 
+for i=1:3
+    hFig = figure;
+    set(hFig, 'Position', [1 1000 300 200])
+    imagesc(abd_map3(:,:,i)); colormap gray; colorbar; AxisFont
+end
+
+%% ============== Nonlinear part ======================= 
+clear all;
+load('Test_SuNDU_All4.mat')
+load('Custumized_abd_ABCD');
+
+tmp0 = sqrt(sum(F_SuNDU.^2)); 
+tmp0_ = reshape(tmp0,nl,nc);
+hFig = figure;
+set(hFig, 'Position', [1 1000 300 200]);
+imagesc(tmp0_); colormap jet; colorbar;
+AxisFont
+
+hFig = figure;
+set(hFig, 'Position', [1 1000 300 200]);
+imagesc((abd_map3(1:330,1:330,2))); colormap gray; colorbar; hold on
+%imagesc((X3d(1:330,1:330,2))); colormap jet; colorbar; hold on
+%imagesc((M3d(1:330,1:330,10))); colormap gray; colorbar; hold on
+thresh = 0.4;
+for i=1:floor(nl/10)
+    for j=1:floor(nc/10)
+        xi = (i-1)*h+1:i*h; yj = (j-1)*w+1:j*w;
+        tmp = tmp0_(xi,yj);
+        if norm(tmp(:),2)>thresh
+           plot_square(xi,yj); 
+        end
+    end
+end
+AxisFont;
