@@ -1,5 +1,4 @@
 # NonlinearUnmixingVector
-
 This demo reproduces the results reported in the paper
 
 > "Nonlinear unmixing of hyperspectral data with vector-valued kernel functions,"<br />
